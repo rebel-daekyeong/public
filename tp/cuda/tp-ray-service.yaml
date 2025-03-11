@@ -1,0 +1,157 @@
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: tp-ray-service
+spec:
+  serveConfigV2: |
+    applications:
+    - name: TensorParallelism
+      route_prefix: /
+      import_path: "tp.cuda.tp_deployment:model"
+      deployments:
+      - name: Gateway
+        num_replicas: 1
+        ray_actor_options:
+          num_cpus: 1
+          # NOTE: num_gpus is set automatically based on TENSOR_PARALLELISM
+          # resources:
+          #   ATOM: 1
+          # num_gpus: 1
+      runtime_env:
+        working_dir: "https://github.com/rebel-daekyeong/public/archive/refs/heads/master.zip"
+        # pip:
+        # - vllm-rbln==0.7.2
+        # - rebel-compiler==0.7.3.dev1+g94d4d063
+        env_vars:
+          # MODEL_ID: meta-llama/Llama-3.2-1B-Instruct
+          # BATCH_SIZE: "4"
+          # MAX_SEQ_LEN: "4096"
+          # TENSOR_PARALLELISM: "1"
+          # PIPELINE_PARALLELISM: "1"
+          # GLOO_SOCKET_IFNAME: eth0
+          NCCL_DEBUG: TRACE
+          NCCL_P2P_DISABLE: "1"
+          # NCCL_SOCKET_IFNAME: eth0
+          TORCH_COMPILE_DEBUGS: "1"
+          TORCH_LOGS: all
+          TORCH_NCCL_BLOCKING_WAIT: "0"
+          # VLLM_LOGGING_LEVEL: DEBUG
+          # VLLM_TRACE_FUNCTION: "1"
+          # RBLN_DUMP_LOG: "1"
+          # RBLN_DUMP_MODE: "all"
+          # RBLN_DUMP_PATH: "/tmp/ray"
+  rayClusterConfig:
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: '0.0.0.0'
+      template:
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: giga-g293-s-24
+          containers:
+          - name: ray-head
+            image: rayproject/ray-ml:2.43.0.ecdcdc-py311-cpu
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                - SYS_PTRACE
+            ports:
+            - containerPort: 6379
+              name: gcs-server
+            - containerPort: 8265
+              name: dashboard
+            - containerPort: 10001
+              name: client
+            - containerPort: 8000
+              name: serve
+            env:
+            - name: PIP_EXTRA_INDEX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pip-secret
+                  key: url
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+            - name: RAY_health_check_failure_threshold
+              value: "3600"
+            resources:
+              limits:
+                cpu: "1"
+                memory: "8Gi"
+              requests:
+                cpu: "1"
+                memory: "8Gi"
+          #   volumeMounts:
+          #   - name: cache
+          #     mountPath: /home/ray/.cache
+          #   - name: log
+          #     mountPath: /tmp/ray
+          # volumes:
+          # - name: cache
+          #   hostPath:
+          #     path: /mnt/shared_data/users/daekyeong/nas_data/ray/.cache
+          #     type: Directory
+          # - name: log
+          #   hostPath:
+          #     path: /mnt/shared_data/users/daekyeong/nas_data/ray/log
+          #     type: Directory
+    workerGroupSpecs:
+    - replicas: 4
+      minReplicas: 0
+      maxReplicas: 4
+      groupName: gpu-group
+      rayStartParams: {}
+      #   resources: |
+      #     "{\"ATOM\": 1}"
+      template:
+        spec:
+          containers:
+          - name: llm
+            image: rayproject/ray-ml:2.43.0.ecdcdc-py311
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                - SYS_PTRACE
+            env:
+            - name: PIP_EXTRA_INDEX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pip-secret
+                  key: url
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+            - name: RAY_health_check_failure_threshold
+              value: "3600"
+            resources:
+              limits:
+                cpu: "8"
+                memory: "32Gi"
+                # rebellions.ai/ATOM: "1"
+                nvidia.com/gpu: "1"
+              requests:
+                cpu: "8"
+                memory: "32Gi"
+                # rebellions.ai/ATOM: "1"
+                nvidia.com/gpu: "1"
+          #   volumeMounts:
+          #   - name: cache
+          #     mountPath: /home/ray/.cache
+          #   - name: log
+          #     mountPath: /tmp/ray
+          # volumes:
+          # - name: cache
+          #   hostPath:
+          #     path: /mnt/shared_data/users/daekyeong/nas_data/ray/.cache
+          #     type: Directory
+          # - name: log
+          #   hostPath:
+          #     path: /mnt/shared_data/users/daekyeong/nas_data/ray/log
+          #     type: Directory

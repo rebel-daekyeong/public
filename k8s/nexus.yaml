@@ -1,0 +1,487 @@
+---
+# Nexus ########################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: nexus-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - nexus.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - nexus.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: nexus-virtual-service
+spec:
+  hosts:
+  - nexus.sw1.rebellions.in
+  gateways:
+  - nexus-gateway
+  http:
+  - route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+
+---
+# Docker #######################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: docker-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - docker.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - docker.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: docker-virtual-service
+spec:
+  hosts:
+  - docker.sw1.rebellions.in
+  gateways:
+  - docker-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /static/
+    rewrite:
+      uri: /static/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /v2/
+    rewrite:
+      uri: /repository/docker/v2/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        exact: /
+    rewrite:
+      uri: /repository/docker/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /
+    rewrite:
+      uri: /repository/docker
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+
+---
+# PyPi #########################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: pypi-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - pypi.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - pypi.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: pypi-virtual-service
+spec:
+  hosts:
+  - pypi.sw1.rebellions.in
+  gateways:
+  - pypi-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /static/
+    rewrite:
+      uri: /static/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        exact: /
+    rewrite:
+      uri: /repository/pypi/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /
+    rewrite:
+      uri: /repository/pypi
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+
+---
+# Helm #########################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: helm-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - helm.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - helm.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: helm-virtual-service
+spec:
+  hosts:
+  - helm.sw1.rebellions.in
+  gateways:
+  - helm-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /static/
+    rewrite:
+      uri: /static/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        exact: /
+    rewrite:
+      uri: /repository/helm/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /
+    rewrite:
+      uri: /repository/helm
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+
+---
+# Conan ########################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: conan-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - conan.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - conan.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: conan-virtual-service
+spec:
+  hosts:
+  - conan.sw1.rebellions.in
+  gateways:
+  - conan-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /static/
+    rewrite:
+      uri: /static/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        exact: /
+    rewrite:
+      uri: /repository/conan/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /
+    rewrite:
+      uri: /repository/conan
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+
+---
+# Apt ##########################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: apt-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - apt.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - apt.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: apt-virtual-service
+spec:
+  hosts:
+  - apt.sw1.rebellions.in
+  gateways:
+  - apt-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /static/
+    rewrite:
+      uri: /static/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        exact: /
+    rewrite:
+      uri: /repository/apt/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /
+    rewrite:
+      uri: /repository/apt
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+---
+# Yum ##########################################################################
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: yum-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - yum.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - yum.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: yum-virtual-service
+spec:
+  hosts:
+  - yum.sw1.rebellions.in
+  gateways:
+  - yum-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /static/
+    rewrite:
+      uri: /static/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        exact: /
+    rewrite:
+      uri: /repository/yum/
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
+  - match:
+    - uri:
+        prefix: /
+    rewrite:
+      uri: /repository/yum
+    route:
+    - destination:
+        host: nexus3
+        port:
+          number: 8081
