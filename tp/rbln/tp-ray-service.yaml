@@ -1,0 +1,105 @@
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: tp-ray-service
+spec:
+  serveConfigV2: |
+    applications:
+    - name: TensorParallelism
+      route_prefix: /
+      import_path: "tp.rbln.tp_deployment:model"
+      deployments:
+      - name: Gateway
+        num_replicas: 1
+      runtime_env:
+        working_dir: "https://github.com/rebel-daekyeong/public/archive/refs/heads/master.zip"
+        env_vars:
+          TORCH_COMPILE_DEBUGS: "1"
+          TORCH_LOGS: all
+          TORCH_NCCL_BLOCKING_WAIT: "0"
+          RBLN_DUMP_LOG: "1"
+          RBLN_DUMP_MODE: "all"
+          RBLN_DUMP_PATH: "/tmp/ray"
+  rayClusterConfig:
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: '0.0.0.0'
+      template:
+        spec:
+          containers:
+          - name: ray-head
+            image: harbor.k8s.rebellions.in/rebellions-sw/buildpack-compiler-manylinux:test
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                - SYS_PTRACE
+            ports:
+            - containerPort: 6379
+              name: gcs-server
+            - containerPort: 8265
+              name: dashboard
+            - containerPort: 10001
+              name: client
+            - containerPort: 8000
+              name: serve
+            env:
+            - name: PIP_EXTRA_INDEX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pip-secret
+                  key: url
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+            - name: RAY_health_check_failure_threshold
+              value: "3600"
+            resources:
+              limits:
+                cpu: "2"
+                memory: "8Gi"
+              requests:
+                cpu: "2"
+                memory: "8Gi"
+    workerGroupSpecs:
+    - replicas: 4
+      minReplicas: 0
+      maxReplicas: 4
+      groupName: gpu-group
+      rayStartParams:
+        resources: |
+          "{\"ATOM\": 1}"
+      template:
+        spec:
+          containers:
+          - name: ray-worker
+            image: harbor.k8s.rebellions.in/rebellions-sw/buildpack-compiler-manylinux:test
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                - SYS_PTRACE
+            env:
+            - name: PIP_EXTRA_INDEX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pip-secret
+                  key: url
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+            - name: RAY_health_check_failure_threshold
+              value: "3600"
+            resources:
+              limits:
+                cpu: "8"
+                memory: "32Gi"
+                rebellions.ai/ATOM: "1"
+              requests:
+                cpu: "8"
+                memory: "32Gi"
+                rebellions.ai/ATOM: "1"

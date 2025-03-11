@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vLLM 벤치마크 WebUI</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>vLLM 벤치마크 WebUI</h1>
+        </header>
+
+        <main>
+            <section id="upload-section" class="card">
+                <h2>1. 데이터셋 업로드</h2>
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="dataset-file">데이터셋 파일 선택:</label>
+                        <input type="file" id="dataset-file" name="file" required>
+                    </div>
+                    <button type="submit" class="btn primary">업로드</button>
+                </form>
+                <div id="upload-status" class="alert"></div>
+            </section>
+
+            <section id="datasets-section" class="card">
+                <h2>2. 업로드된 데이터셋</h2>
+                <div id="datasets-list" class="datasets">
+                    <p>로딩 중...</p>
+                </div>
+            </section>
+
+            <section id="benchmark-section" class="card">
+                <h2>3. 벤치마크 설정</h2>
+                <form id="benchmark-form">
+                    <div class="form-group">
+                        <label for="base-url">Base URL:</label>
+                        <input type="url" id="base-url" name="base_url"
+                               value="https://ray.sw1.rebellions.in" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dataset-select">데이터셋 파일:</label>
+                        <select id="dataset-select" name="dataset_name" required>
+                            <option value="">선택해주세요</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="dataset-type">데이터셋 타입:</label>
+                        <input type="text" id="dataset-type" name="dataset_type"
+                               value="sonnet" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="model-name">모델 이름:</label>
+                        <input type="text" id="model-name" name="model_name"
+                               value="meta-llama/Llama-3.2-1B-Instruct" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="num-prompts">프롬프트 갯수:</label>
+                        <input type="text" id="num-prompts" name="num_prompts"
+                               value="100" required>
+                    </div>
+
+                    <button type="submit" class="btn primary">벤치마크 실행</button>
+                </form>
+            </section>
+
+            <section id="output-section" class="card">
+                <h2>4. 실시간 출력</h2>
+                <div class="output-wrapper">
+                    <pre id="output-console"></pre>
+                </div>
+            </section>
+
+            <section id="visualization-section" class="card">
+                <h2>5. 시각화 결과</h2>
+                <div id="visualization-container">
+                    <p>벤치마크 완료 후 결과가 여기에 표시됩니다.</p>
+                </div>
+            </section>
+
+            <section id="clean-results-section" class="card">
+                <h2>6. 결과 정리</h2>
+                <button id="clean-results-btn" class="btn error">모든 결과 정리</button>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

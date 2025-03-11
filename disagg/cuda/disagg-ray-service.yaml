@@ -1,0 +1,196 @@
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: disagg-ray-service
+spec:
+  serveConfigV2: |
+    applications:
+    - name: Prefill
+      route_prefix: /disagg/prefill
+      import_path:  disagg.cuda.disagg_prefill_deployment:prefill_model
+      deployments:
+      - name: PrefillWorker
+        num_replicas: 1
+        ray_actor_options:
+          num_cpus: 1
+          num_gpus: 1
+      runtime_env:
+        working_dir: "https://github.com/rebel-daekyeong/public/archive/refs/heads/master.zip"
+    - name: Decode
+      route_prefix: /disagg/decode
+      import_path:  disagg.cuda.disagg_decode_deployment:decode_model
+      deployments:
+      - name: DecodeWorker
+        num_replicas: 1
+        ray_actor_options:
+          num_cpus: 1
+          num_gpus: 1
+      runtime_env:
+        working_dir: "https://github.com/rebel-daekyeong/public/archive/refs/heads/master.zip"
+    - name: Proxy
+      route_prefix: /disagg
+      import_path:  disagg.cuda.disagg_proxy_deployment:proxy_model
+      deployments:
+      - name: ProxyWorker
+        num_replicas: 1
+        ray_actor_options:
+          num_cpus: 1
+      runtime_env:
+        working_dir: "https://github.com/rebel-daekyeong/public/archive/refs/heads/master.zip"
+    - name: Chunked
+      route_prefix: /chunked
+      import_path:  disagg.cuda.chunked_deployment:chunked_model
+      deployments:
+      - name: ChunkedWorker
+        num_replicas: 2
+        ray_actor_options:
+          num_cpus: 1
+          num_gpus: 1
+      runtime_env:
+        working_dir: "https://github.com/rebel-daekyeong/public/archive/refs/heads/master.zip"
+  rayClusterConfig:
+    headGroupSpec:
+      rayStartParams:
+        dashboard-host: '0.0.0.0'
+      template:
+        spec:
+          containers:
+          - name: ray-head
+            image: vllm/vllm-openai:v0.7.2
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                - SYS_PTRACE
+            resources:
+              limits:
+                cpu: "2"
+                memory: "8Gi"
+              requests:
+                cpu: "2"
+                memory: "8Gi"
+            ports:
+            - containerPort: 6379
+              name: gcs-server
+            - containerPort: 8265
+              name: dashboard
+            - containerPort: 10001
+              name: client
+            - containerPort: 8000
+              name: serve
+            - containerPort: 5678
+              name: debug
+            env:
+            - name: PIP_EXTRA_INDEX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pip-secret
+                  key: url
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+    workerGroupSpecs:
+    - replicas: 2
+      minReplicas: 0
+      maxReplicas: 2
+      groupName: gpu-group
+      rayStartParams: {}
+      template:
+        spec:
+          containers:
+          - name: ray-worker
+            image: vllm/vllm-openai:v0.7.2
+            securityContext:
+              privileged: true
+              capabilities:
+                add:
+                - SYS_PTRACE
+            resources:
+              limits:
+                cpu: "8"
+                memory: "32Gi"
+                nvidia.com/gpu: "2"
+              requests:
+                cpu: "8"
+                memory: "32Gi"
+                nvidia.com/gpu: "2"
+            ports:
+            - containerPort: 5678
+              name: debug
+            env:
+            - name: PIP_EXTRA_INDEX_URL
+              valueFrom:
+                secretKeyRef:
+                  name: pip-secret
+                  key: url
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-secret
+                  key: hf_api_token
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: ray-gateway
+  annotations:
+    cert-manager.io/issuer: letsencrypt-dns
+spec:
+  selector:
+    app: istio-ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - ray.sw1.rebellions.in
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - ray.sw1.rebellions.in
+    tls:
+      mode: SIMPLE
+      credentialName: sw1-rebellions-in-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ray-virtual-service
+spec:
+  hosts:
+  - ray.sw1.rebellions.in
+  gateways:
+  - ray-gateway
+  http:
+  - name: RayDashboard
+    match:
+    - uri:
+        prefix: /dashboard/
+    rewrite:
+      uri: /
+    route:
+    - destination:
+        host: disagg-ray-service-head-svc
+        port:
+          number: 8265
+  - name: RayDashboard Redirect
+    match:
+    - uri:
+        prefix: /dashboard
+    redirect:
+      uri: /dashboard/
+  - name: RayServe
+    route:
+    - destination:
+        host: disagg-ray-service-serve-svc
+        port:
+          number: 8000
